@@ -1,0 +1,41 @@
+#!/bin/sh
+
+NODE=$1
+VERSION=$2
+MODE=$3
+
+if [ $# != 3 ]; then
+  echo "Usage: fuzz \$NODE \$VERSION \$MODE[asan/ubsan/cover]"
+  exit 0
+fi
+
+AFL_PATH=$HOME/GreedyFuzzing/afl-2.52b-rand
+FUZZ_PATH=$HOME/GreedyFuzzing/fuzz/$NODE
+
+INPUT=$FUZZ_PATH/input
+OUTPUT=$FUZZ_PATH/output
+
+CONFIG=$FUZZ_PATH/config
+SUFFIX=`head -1 $CONFIG`
+FILE="$FUZZ_PATH/test.$SUFFIX"
+
+EXTRAS=`head -2 $CONFIG | tail -1`
+EXTRAS=${EXTRAS//\$HOME/$HOME}
+EXTRAS=${EXTRAS//\$MODE/$MODE}
+EXTRAS=${EXTRAS//\$VERSION/$VERSION}
+EXTRAS=${EXTRAS//\$LD_LIBRARY_PATH/$LD_LIBRARY_PATH}
+
+COMMAND=`head -3 $CONFIG | tail -1`
+COMMAND=${COMMAND//\$HOME/$HOME}
+COMMAND=${COMMAND//\$MODE/$MODE}
+COMMAND=${COMMAND//\$VERSION/$VERSION}
+COMMAND=${COMMAND//\$INPUT/"@@"}
+CMD="$AFL_PATH/afl-fuzz -m none -i $INPUT -o $OUTPUT -f $FILE $COMMAND"
+
+export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+export AFL_SKIP_CPUFREQ=1
+
+echo $EXTRAS
+$EXTRAS
+echo $CMD
+$CMD

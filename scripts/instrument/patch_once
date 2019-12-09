@@ -1,0 +1,22 @@
+#!/bin/sh
+PRODUCT=$1
+VERSION=$2
+INSTRUMENT_SIG="asan_print_accumulated_stats"
+export PATCH_FILE=$HOME/GreedyFuzzing/instrument/asandump.c
+export BIN_PATH=$HOME/GreedyFuzzing/product/$PRODUCT/$VERSION/exe_asan/bin/
+
+if [ ! -d "$BIN_PATH" ]; then
+  echo "$BIN_PATH does not exist"
+fi
+
+if [ -z "$VERSION" ] || [ -z "$PRODUCT" ]; then
+  echo "PRODUCT and VERSION required"
+else
+  src_folder=$HOME/GreedyFuzzing/product/$PRODUCT/$VERSION/src
+  if grep -q -R "$INSTRUMENT_SIG" $src_folder; then
+    echo "already patched"
+  else
+    ls $BIN_PATH | xargs -I{} find $src_folder -name "{}.c" -o -name "{}.cpp" | xargs -I@ sh -c 'cat $PATCH_FILE >> @'
+    #find $src_folder -name "*.c" -o -name "*.cpp" -o -name "*.hpp" | xargs -I{} sh -c 'grep -l "main.*(" {}' | xargs -I@ sh -c 'cat $PATCH_FILE >> @'
+  fi
+fi

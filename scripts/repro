@@ -1,0 +1,62 @@
+#!/bin/sh
+
+NODE=$1
+VERSION=$2
+MODE=$3
+TARGET=$4
+
+if [ $# != 4 ]; then
+  echo "Usage: repro \$NODE \$VERSION \$MODE[sat/raw] \$TARGET[crash/hang]"
+  exit 0
+fi
+
+FUZZ_PATH=$HOME/GreedyFuzzing/fuzz/$NODE
+
+HANG_PATH=$FUZZ_PATH/output/hangs
+CRASH_PATH=$FUZZ_PATH/output/crashes
+QUEUE_PATH=$FUZZ_PATH/output/queue
+POC_PATH=$FUZZ_PATH/output/poc
+
+rm -rf $POC_PATH
+mkdir $POC_PATH
+
+if [ "$TARGET" == "hang" ]; then
+  cp --preserve=timestamp $HANG_PATH/* $POC_PATH
+else
+  cp --preserve=timestamp $CRASH_PATH/* $POC_PATH
+  rm $POC_PATH/README.txt
+fi
+
+CONFIG=$FUZZ_PATH/config
+SUFFIX=`head -1 $CONFIG`
+
+EXTRAS=`head -2 $CONFIG | tail -1`
+EXTRAS=${EXTRAS//\$HOME/$HOME}
+EXTRAS=${EXTRAS//\$MODE/$MODE}
+EXTRAS=${EXTRAS//\$VERSION/$VERSION}
+EXTRAS=${EXTRAS//\$LD_LIBRARY_PATH/$LD_LIBRARY_PATH}
+
+COMMAND=`head -3 $CONFIG | tail -1`
+COMMAND=${COMMAND//\$HOME/$HOME}
+COMMAND=${COMMAND//\$MODE/$MODE}
+COMMAND=${COMMAND//\$VERSION/$VERSION}
+COMMAND=${COMMAND//\$INPUT/"@@"}
+
+export ASAN_OPTIONS=detect_odr_violation=0
+
+for FILE in `ls -rt $POC_PATH`
+do
+  mv $POC_PATH/$FILE $POC_PATH/$FILE.$SUFFIX
+done
+
+echo -e "\n================================================\n"
+
+for FILE in `ls -rt $POC_PATH`
+do
+  INPUT="$POC_PATH/$FILE"
+  $EXTRAS
+  CMD=`echo $COMMAND | sed -e "s|@@|$INPUT|"`
+  echo $CMD
+  $CMD
+  echo -e "\n================================================\n"
+done

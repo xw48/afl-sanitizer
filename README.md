@@ -1,1 +1,1 @@
-# afl-2.52b
+Using sanitizer statistics to guide mutations.
